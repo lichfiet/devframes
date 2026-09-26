@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>devframes</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <aside class="sidebar" id="sidebar">
+      <header class="side-head">
+        <button class="icon-btn" id="collapse" title="Collapse sidebar" aria-label="Collapse sidebar">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="brand">
+          <strong>devframes</strong>
+          <span id="repo" class="muted"></span>
+        </div>
+      </header>
+      <ul class="sessions" id="sessions" aria-label="Sessions"></ul>
+      <ul class="links" id="links"></ul>
+      <footer class="side-foot">
+        <div id="summary" class="muted"></div>
+        <button class="btn danger" id="stopAll">Stop all</button>
+      </footer>
+    </aside>
+
+    <main class="main">
+      <div class="toolbar">
+        <div class="seg" id="viewModes" role="group" aria-label="Viewports"></div>
+        <form id="pathForm" class="path">
+          <input id="path" spellcheck="false" autocomplete="off" aria-label="Path" />
+        </form>
+        <div id="quick" class="quick"></div>
+        <button class="icon-btn" id="reload" title="Reload active session's frames" aria-label="Reload">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <a class="icon-btn" id="openTab" target="_blank" rel="noreferrer" title="Open in a new tab" aria-label="Open in a new tab">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+      <div class="stage" id="stage">
+        <div class="empty" id="empty">Pick a session on the left, or press <kbd>[</kbd> / <kbd>]</kbd>.</div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "devframes",
+  "version": "0.1.0",
+  "description": "Side-by-side phone + desktop live previews of every git worktree's dev server — switch between parallel sessions instantly.",
+  "type": "module",
+  "bin": {
+    "devframes": "./bin/devframes.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "ui",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node bin/devframes.mjs"
+  },
+  "license": "MIT"
+}
