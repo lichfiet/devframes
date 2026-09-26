@@ -72,7 +72,7 @@ export default {
 `open-lingo/lingo/devframes.config.mjs` for a real one.
 
 Anything you leave out falls back to a default, so a plain Vite app needs little
-more than `dev.command`.
+more than `command`.
 
 Linked paths are added to the repo's shared `.git/info/exclude`. That file is
 never committed, so the links never show up as untracked files in anyone's worktree.
