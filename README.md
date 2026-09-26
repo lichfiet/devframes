@@ -42,26 +42,34 @@ In the UI, `[` and `]` cycle sessions. The URL hash remembers the active session
 
 ```js
 export default {
-  dev: {
-    command: "npx vite --port {port} --strictPort", // {port} is filled in
-    env: { VITE_SOME_FLAG: "true" },
-    readyPath: "/",
-  },
-  ports: { ui: 5180, main: 5174, first: 5175 },     // main checkout / worktrees
+  uiPort: 5180,                                   // the devframes UI
+  command: "npx vite --port {port} --strictPort", // placeholders: {port} {root} {mainRoot} {cacheDir} {name}
+  mainCommand: null,                              // main checkout's command (defaults to command)
+  mainPort: null,                                 // fixed port for main (null = allocate)
+  ports: [5175, 5224],                            // session port range
+  env: { VITE_SOME_FLAG: "true" },
+  readyPath: "/",
   viewports: [
     { name: "phone", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 },
   ],
-  routes: ["/", "/settings"],                        // quick-route buttons
-  worktrees: {
-    link: ["node_modules"],        // symlinked from the main checkout when missing
-    setup: "npm run build:content", // optional one-click "rebuild generated files"
-    lockfile: "package-lock.json",  // differs from main → "deps differ" badge
+  routes: ["/", "/settings"],                     // quick-route buttons
+  startPath: "/",
+  worktree: {
+    // symlinked from the main checkout when the worktree lacks its own;
+    // the badge's one-click fix removes the link and runs install/setup
+    link: [{ path: "node_modules", badge: "deps differ", when: "lockfileDiffers", fix: "install" }],
+    exclude: true,                                // keep links out of git status
   },
-  idleMinutes: 15,
+  setupCommand: null,                             // e.g. "npm run build:content"
+  installCommand: null,                           // null = detect from lockfile
+  idleTimeoutMs: 15 * 60_000,
   maxRunning: 4,
 };
 ```
+
+`src/config.mjs` (`DEFAULTS`) is the full, commented reference. See
+`open-lingo/lingo/devframes.config.mjs` for a real one.
 
 Anything you leave out falls back to a default, so a plain Vite app needs little
 more than `dev.command`.
