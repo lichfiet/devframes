@@ -69,3 +69,59 @@ export async function worktreeDetail(path, maxAgeMs = 4_000) {
   cache.set(path, { at: Date.now(), detail });
   return detail;
 }
+
+/** Parse `git log --format=%h%x09%ct%x09%an%x09%s` output. */
+export function parseLog(text) {
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => {
+      const [sha, at, author, ...subject] = l.split("\t");
+      return { sha, at: Number(at) * 1000, author, subject: subject.join("\t") };
+    });
+}
+
+/** Parse `git status --porcelain` into { status, path } rows. */
+export function parseStatus(text) {
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => ({ status: l.slice(0, 2).trim() || "?", path: l.slice(3) }));
+}
+
+/**
+ * What changed in a worktree: recent commits on its branch, ahead/behind
+ * versus `baseRef`, commits on the base it hasn't picked up yet, and its
+ * uncommitted files. Read-only; never fetches (the caller decides).
+ */
+export async function worktreeChanges(path, baseRef = "origin/main", limit = 20) {
+  const git = (args) =>
+    run("git", ["-C", path, ...args], { maxBuffer: 8 * 1024 * 1024 })
+      .then((r) => r.stdout)
+      .catch(() => "");
+  const fmt = "--format=%h%x09%ct%x09%an%x09%s";
+  const [branch, log, counts, incoming, status] = await Promise.all([
+    git(["branch", "--show-current"]),
+    git(["log", `-${limit}`, fmt]),
+    git(["rev-list", "--left-right", "--count", `HEAD...${baseRef}`]),
+    git(["log", `-${limit}`, fmt, `HEAD..${baseRef}`]),
+    git(["status", "--porcelain"]),
+  ]);
+  const [ahead = 0, behind = 0] = counts.trim().split(/\s+/).map(Number);
+  return {
+    branch: branch.trim() || "(detached)",
+    baseRef,
+    ahead: ahead || 0,
+    behind: behind || 0,
+    commits: parseLog(log),
+    incoming: parseLog(incoming),
+    changes: parseStatus(status),
+  };
+}
+
+/** `git fetch` the remote half of a ref like "origin/main" (no-op for local refs). */
+export async function fetchBase(root, baseRef = "origin/main") {
+  const slash = baseRef.indexOf("/");
+  if (slash < 0) return;
+  await run("git", ["-C", root, "fetch", "-q", baseRef.slice(0, slash), baseRef.slice(slash + 1)], { timeout: 20_000 });
+}

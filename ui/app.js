@@ -5,6 +5,8 @@
 // session keeps its route, scroll position and open dialogs. Stopped sessions
 // have no frames at all.
 
+import { initChanges, openChanges, changesFollow } from "./changes.js";
+
 const $ = (id) => document.getElementById(id);
 const api = async (method, path) => {
   const res = await fetch(path, { method });
@@ -95,7 +97,17 @@ function renderSidebar() {
             "div",
             { className: "row-meta" },
             meta,
-            s.dirty ? el("span", { className: "dirty" }, ` · ${s.dirty} changed`) : null,
+            s.dirty
+              ? el(
+                  "span",
+                  {
+                    className: "dirty",
+                    title: "Show what changed",
+                    onclick: (e) => (e.stopPropagation(), activate(s.id), openChanges(s.id)),
+                  },
+                  ` · ${s.dirty} changed`,
+                )
+              : null,
             s.port ? ` · :${s.port}` : null,
           ),
         ),
@@ -313,6 +325,7 @@ async function fixBadge(id, label) {
 function activate(id) {
   state.active = id;
   writeHash();
+  changesFollow(id);
   const s = activeSession();
   const p = pairs.get(id);
   $("path").value = p?.path ?? state.config.startPath;
@@ -367,6 +380,7 @@ async function boot() {
   await refresh();
   if (h.s && state.sessions.some((s) => s.id === h.s)) activate(h.s);
 
+  initChanges(() => state.active);
   $("pathForm").onsubmit = (e) => {
     e.preventDefault();
     navigate($("path").value.trim() || "/");

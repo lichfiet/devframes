@@ -12,7 +12,7 @@ import { dirname, join, extname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadConfig, fillTemplate } from "./config.mjs";
-import { listWorktrees, worktreeDetail } from "./worktrees.mjs";
+import { listWorktrees, worktreeDetail, worktreeChanges, fetchBase } from "./worktrees.mjs";
 import { SessionManager } from "./manager.mjs";
 import { allocatePort, httpUp } from "./ports.mjs";
 import { launchServer, groupRss } from "./process.mjs";
@@ -124,6 +124,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
     if (wasRunning) manager.start(id).catch(() => {});
   }
 
+  let lastFetch = 0;
   const routes = {
     "GET /api/config": () => ({
       root: cfg.root,
@@ -135,6 +136,16 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       idleTimeoutMs: cfg.idleTimeoutMs,
     }),
     "GET /api/sessions": async () => ({ sessions: await sessions(), maxRunning: manager.maxRunning }),
+    "GET /api/changes": async (q) => {
+      const wt = byId(q.get("id"));
+      if (!wt) throw new Error(`unknown session ${q.get("id")}`);
+      // Fetch the base at most once a minute, so "behind" means something.
+      if (Date.now() - lastFetch > 60_000) {
+        lastFetch = Date.now();
+        await fetchBase(cfg.root, cfg.baseRef).catch(() => {});
+      }
+      return worktreeChanges(wt.path, cfg.baseRef);
+    },
     "POST /api/start": async (q) => {
       manager.clearError(q.get("id"));
       const s = await manager.start(q.get("id"));

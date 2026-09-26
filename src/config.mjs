@@ -11,6 +11,8 @@ import { pathToFileURL } from "node:url";
 export const CONFIG_FILES = ["devframes.config.mjs", "devframes.config.js", "devframes.config.json"];
 
 export const DEFAULTS = Object.freeze({
+  /** Branch the Changes panel compares each worktree against (ahead/behind, incoming). */
+  baseRef: "origin/main",
   /** Port the devframes UI itself listens on. */
   uiPort: 5180,
   /**
