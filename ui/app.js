@@ -23,7 +23,29 @@ const state = {
   pending: new Set(), // ids with a start/stop request in flight
   errors: new Map(),
 };
-const pairs = new Map(); // id -> { el, url, frames: Map(vpName -> {box, iframe}) }
+const pairs = new Map();
+
+/* ── Rotation (per viewport, remembered) ─────────────────────── */
+const rotated = new Set((() => {
+  try { return JSON.parse(localStorage.getItem("devframes.rotated") || "[]"); } catch { return []; }
+})());
+/** Effective size: a rotated viewport swaps width and height. */
+function dims(vp) {
+  return rotated.has(vp.name) ? { w: vp.height, h: vp.width } : { w: vp.width, h: vp.height };
+}
+function toggleRotate(name) {
+  rotated.has(name) ? rotated.delete(name) : rotated.add(name);
+  try { localStorage.setItem("devframes.rotated", JSON.stringify([...rotated])); } catch {}
+  for (const p of pairs.values()) {
+    const f = p.frames.get(name);
+    if (!f) continue;
+    const d = dims(f.vp);
+    f.iframe.width = d.w;
+    f.iframe.height = d.h;
+    f.label.textContent = `${name} · ${d.w}×${d.h}`;
+  }
+  layout();
+} // id -> { el, url, frames: Map(vpName -> {box, iframe}) }
 
 /* ── Hash (active session + view mode) ───────────────────────── */
 
@@ -183,7 +205,7 @@ function renderToolbar() {
     ...vps.map((v) =>
       mk(v.name, state.visible.has(v.name) && !allOn, () => setVisible(new Set([v.name]))),
     ),
-    ...(vps.length > 1 ? [mk("both", allOn, () => setVisible(new Set(vps.map((v) => v.name))))] : []),
+    ...(vps.length > 1 ? [mk(vps.length > 2 ? "all" : "both", allOn, () => setVisible(new Set(vps.map((v) => v.name))))] : []),
   );
   $("quick").replaceChildren(
     ...state.config.routes.map((r) => el("button", { type: "button", onclick: () => navigate(r) }, r)),
@@ -214,17 +236,22 @@ function ensurePair(s) {
     const have = p.frames.get(vp.name);
     if (want && !have) {
       const iframe = el("iframe", { src: s.url + p.path, title: `${s.name} — ${vp.name}` });
-      iframe.width = vp.width;
-      iframe.height = vp.height;
+      const d = dims(vp);
+      iframe.width = d.w;
+      iframe.height = d.h;
       const box = el("div", { className: `frame-box ${vp.name}` }, iframe);
-      const wrap = el("div", { className: "frame" }, el("div", { className: "frame-label" }, `${vp.name} · ${vp.width}×${vp.height}`), box);
+      const label = el("span", {}, `${vp.name} · ${d.w}×${d.h}`);
+      const rotate = vp.rotatable
+        ? el("button", { className: "rotate-btn", title: "Rotate", "aria-label": `Rotate ${vp.name}`, onclick: () => toggleRotate(vp.name) }, "↻")
+        : null;
+      const wrap = el("div", { className: "frame" }, el("div", { className: "frame-label" }, label, rotate), box);
       wrap.dataset.vp = vp.name;
       // keep config order
       const after = [...p.el.children].find(
         (c) => state.config.viewports.findIndex((v) => v.name === c.dataset.vp) > state.config.viewports.indexOf(vp),
       );
       p.el.insertBefore(wrap, after ?? null);
-      p.frames.set(vp.name, { wrap, box, iframe, vp });
+      p.frames.set(vp.name, { wrap, box, iframe, vp, label });
     } else if (!want && have) {
       have.wrap.remove();
       p.frames.delete(vp.name);
@@ -263,13 +290,14 @@ function layout() {
   const vps = state.config.viewports.filter((v) => state.visible.has(v.name));
   if (!vps.length) return;
   const border = (vp) => (vp.name === "phone" ? 16 : 2);
-  const totalW = vps.reduce((a, v) => a + v.width + border(v), 0) + 24 * (vps.length - 1);
-  const maxH = Math.max(...vps.map((v) => v.height + border(v)));
+  const totalW = vps.reduce((a, v) => a + dims(v).w + border(v), 0) + 24 * (vps.length - 1);
+  const maxH = Math.max(...vps.map((v) => dims(v).h + border(v)));
   const scale = Math.min(1, W / totalW, H / maxH);
   for (const p of pairs.values()) {
     for (const f of p.frames.values()) {
-      f.box.style.width = `${f.vp.width * scale + border(f.vp)}px`;
-      f.box.style.height = `${f.vp.height * scale + border(f.vp)}px`;
+      const d = dims(f.vp);
+      f.box.style.width = `${d.w * scale + border(f.vp)}px`;
+      f.box.style.height = `${d.h * scale + border(f.vp)}px`;
       f.iframe.style.transform = `scale(${scale})`;
     }
   }

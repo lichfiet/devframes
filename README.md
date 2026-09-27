@@ -52,6 +52,7 @@ export default {
   viewports: [
     { name: "phone", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 },
+    { name: "tablet", width: 820, height: 1180, rotatable: true }, // ↻ in its label swaps w/h
   ],
   routes: ["/", "/settings"],                     // quick-route buttons
   startPath: "/",
