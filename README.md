@@ -1,111 +1,154 @@
+<div align="center">
+
 # devframes
 
-Live phone + desktop previews of **every git worktree's dev server**, in one
-browser tab. Built for running several coding sessions (e.g. parallel Claude
-Code sessions, each in its own worktree) and flipping between their
-in-progress UIs instantly.
+**Every git worktree's dev server, live, side by side, in one browser tab.**
 
-- A sidebar lists every worktree: branch, uncommitted-file count, last-commit age, status.
-- ▶ / ■ start and stop a worktree's dev server; 📌 pins it against idle shutdown.
-- Each **running** session keeps its frames mounted, so switching is instant and
-  keeps each session's route, scroll position and open dialogs.
-- View mode: phone, desktop or both. At most N sessions run at once (default 4);
-  the least-recently-used unpinned one is stopped to make room. Idle sessions stop
-  after 15 min.
-- One-click fixes for common setup problems: shared generated files, or `npm ci`
-  when a worktree's lockfile differs from the main checkout.
+Phone, tablet and desktop previews of all your branches at once. Built for running
+several coding sessions in parallel (one AI agent or teammate per worktree) and
+flipping between their in-progress UIs instantly.
 
-No runtime dependencies. The UI is plain HTML/JS served by the CLI.
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node >= 20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
+![Zero dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)
 
-## Install
+</div>
+
+---
+
+## Why
+
+Worktrees make it easy to work on five branches at once. Looking at five branches
+at once is still a mess: five terminals, five dev servers, five ports, five browser
+tabs that forget where you were. devframes turns that into one sidebar and one view.
+
+## Features
+
+- **Every worktree in one sidebar.** Branch, uncommitted-file count, last-commit age
+  and status, discovered from `git worktree list`.
+- **One-click dev servers.** ▶ / ■ start and stop each worktree's server on its own
+  port. 📌 pins a session so it never idles out.
+- **Instant switching.** Running sessions keep their frames mounted, so switching
+  keeps each session's route, scroll position and open dialogs. `[` and `]` cycle.
+- **Real device sizes.** Phone, desktop, tablet (rotatable) or all of them at once,
+  with quick-route buttons for the pages you check most.
+- **Combine branches.** Tick unmerged branches and preview them merged together on
+  top of `origin/main`, without touching main or any other worktree.
+- **Changes panel.** What each worktree has that main doesn't, and what main has
+  that it's missing.
+- **Resource-aware.** At most N sessions run at once (LRU eviction, pins exempt),
+  and idle ones stop after 15 minutes.
+- **Self-healing setup.** Shares `node_modules` (or anything else) from the main
+  checkout via symlinks, and offers a one-click reinstall when a worktree's lockfile
+  drifts.
+- **Zero dependencies.** A small Node CLI plus a plain HTML/JS UI.
+
+## Quick start
 
 ```bash
-git clone <this repo> ~/projects/devframes
-cd ~/projects/devframes && npm link      # puts `devframes` on PATH
+git clone https://github.com/lichfiet/devframes.git
+cd devframes && npm link        # puts `devframes` on your PATH
+
+cd ~/code/your-app
+devframes init                  # writes devframes.config.mjs
+devframes                       # opens http://localhost:5180
 ```
 
-Or run it directly: `node ~/projects/devframes/bin/devframes.mjs`.
+A plain Vite app works with no config at all. For anything else, set `command`.
 
-## Use
+## Commands
 
-```bash
-cd your-repo
-devframes init          # writes devframes.config.mjs (edit it)
-devframes               # starts the UI on http://localhost:5180
-devframes status        # what's running
-devframes stop          # stop the UI and every dev server it started
-```
+| Command | What it does |
+| --- | --- |
+| `devframes` | Start the UI on `http://localhost:5180` |
+| `devframes init` | Write a starter `devframes.config.mjs` in the current repo |
+| `devframes status` | Show what's running |
+| `devframes stop` | Stop the UI and every dev server it started |
 
-In the UI, `[` and `]` cycle sessions. The URL hash remembers the active session and view mode.
+The URL hash remembers the active session and view mode, so a refresh lands where
+you were.
 
-## Combine
+## Combine: preview unmerged branches together
 
-Try several unmerged branches together. The sidebar's **Combine** section lists
-local branches not merged into `origin/main` (plus any checked out in a
-worktree). Tick some and press **Build preview**: devframes keeps a worktree at
-`<repo>/.claude/worktrees/_combined` on `preview/combined`, runs `git fetch
-origin`, resets that worktree (only) to `origin/main`, then merges each ticked
-branch. A branch that conflicts is aborted and reported as skipped, with its
-conflicting files. The `_combined` session is then (re)started like any other.
-**Rebuild** repeats the build with the saved selection (kept in the state file).
-Nothing is ever pushed, and `reset --hard` refuses to run outside `_combined`.
+The sidebar's **Combine** section lists local branches that aren't merged into
+`origin/main`. Tick some and press **Build preview**:
 
-## Config (`devframes.config.mjs`)
+1. devframes keeps a dedicated worktree at `<repo>/.claude/worktrees/_combined` on
+   a local `preview/combined` branch.
+2. It fetches `origin` and resets **that worktree only** to `origin/main`.
+3. It merges each ticked branch. A branch that conflicts is aborted and listed as
+   skipped, with its conflicting files.
+4. The combined session starts like any other.
+
+**Rebuild** repeats it with the saved selection. Nothing is ever pushed, and the
+reset refuses to run anywhere except the combined worktree.
+
+## Configuration
+
+`devframes.config.mjs` in your repo root. Every key is optional and merges over the
+defaults in [`src/config.mjs`](src/config.mjs), which is the full commented reference.
 
 ```js
 export default {
   uiPort: 5180,                                   // the devframes UI
-  command: "npx vite --port {port} --strictPort", // placeholders: {port} {root} {mainRoot} {cacheDir} {name}
+  command: "npx vite --port {port} --strictPort", // {port} {root} {mainRoot} {cacheDir} {name}
   mainCommand: null,                              // main checkout's command (defaults to command)
   mainPort: null,                                 // fixed port for main (null = allocate)
   ports: [5175, 5224],                            // session port range
-  env: { VITE_SOME_FLAG: "true" },
-  readyPath: "/",
+  env: { VITE_SOME_FLAG: "true" },                // extra env for every dev server
+  readyPath: "/",                                 // polled until it answers
+  baseRef: "origin/main",                         // what the Changes panel compares against
   viewports: [
     { name: "phone", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 },
-    { name: "tablet", width: 820, height: 1180, rotatable: true }, // ↻ in its label swaps w/h
+    { name: "tablet", width: 820, height: 1180, rotatable: true },
   ],
   routes: ["/", "/settings"],                     // quick-route buttons
   startPath: "/",
   worktree: {
-    // symlinked from the main checkout when the worktree lacks its own;
-    // the badge's one-click fix removes the link and runs install/setup
+    // Symlinked from the main checkout when a worktree lacks its own. The badge's
+    // one-click fix removes the link and runs install or setup.
     link: [{ path: "node_modules", badge: "deps differ", when: "lockfileDiffers", fix: "install" }],
     exclude: true,                                // keep links out of git status
   },
   setupCommand: null,                             // e.g. "npm run build:content"
-  installCommand: null,                           // null = detect from lockfile
+  installCommand: null,                           // null = detect from the lockfile
   idleTimeoutMs: 15 * 60_000,
   maxRunning: 4,
 };
 ```
 
-`src/config.mjs` (`DEFAULTS`) is the full, commented reference.
-
-Anything you leave out falls back to a default, so a plain Vite app needs little
-more than `command`.
-
-Linked paths are added to the repo's shared `.git/info/exclude`. That file is
-never committed, so the links never show up as untracked files in anyone's worktree.
+Linked paths go into the repo's shared `.git/info/exclude`, which is never
+committed, so they never show up as untracked files in any worktree.
 
 ## How it works
 
-- `git worktree list --porcelain` is used for discovery; the UI polls `/api/sessions`.
-- Each session is a child process group on its own port, with a readiness check
-  on `readyPath`. The idle timer, the LRU cap and pins are handled by the session
-  manager. State lives in `$TMPDIR/devframes-<hash>.json` so `devframes stop` can
-  find everything.
-- The library is usable from code: `import { createDevframes, listWorktrees, SessionManager } from "devframes"`.
+- **Discovery:** `git worktree list --porcelain`. The UI polls `/api/sessions`.
+- **Sessions:** each dev server runs as its own process group on its own port, and
+  counts as running once `readyPath` answers. The session manager handles idle
+  timeouts, the LRU cap and pins.
+- **State:** kept in `$TMPDIR/devframes-<hash>.json`, so `devframes stop` can always
+  find and clean up everything it started.
 
-## Tests
+It's also usable as a library:
 
-```bash
-npm test
+```js
+import { createDevframes, listWorktrees, SessionManager } from "devframes";
 ```
 
-## Planned
+## Development
 
-- Follow the active terminal tab (e.g. Windows Terminal / WSL), so the viewer
-  switches to whichever session you're talking to.
-- Publish (npm / GitHub): location not decided yet.
+```bash
+npm test        # node --test, no extra tooling
+npm start       # run the CLI from source
+```
+
+## Roadmap
+
+- Follow the active terminal tab, so the viewer switches to whichever session
+  you're talking to.
+- Publish to npm.
+
+## License
+
+[MIT](LICENSE) © Trevor Lichfield
