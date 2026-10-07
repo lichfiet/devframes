@@ -35,6 +35,14 @@ export const DEFAULTS = Object.freeze({
   ports: [5175, 5224],
   /** Extra env for every dev server. */
   env: {},
+  /**
+   * Named env sets a session can be switched between from the UI, e.g.
+   * `{ fixtures: { env: { API: "off" } }, live: { env: { API: "local" } } }`.
+   * The chosen profile's env is merged over `env`; switching restarts that
+   * session. `defaultProfile` is used until a session picks one.
+   */
+  profiles: {},
+  defaultProfile: null,
   /** Path polled until it answers (<500) before a session counts as running. */
   readyPath: "/",
   /** "http" = readyPath answers with a status below 500; "tcp" = the port accepts connections. */
@@ -225,6 +233,18 @@ export async function loadConfig(root = findRepoRoot()) {
     link: cfg.worktree.link ?? (existsSync(join(root, "package.json")) ? [{ ...NODE_MODULES_LINK }] : []),
   };
   return cfg;
+}
+
+/** Profile name in force for a session: its saved choice, else the default (if it exists). */
+export function activeProfile(cfg, saved) {
+  const names = Object.keys(cfg.profiles ?? {});
+  if (saved && names.includes(saved)) return saved;
+  return cfg.defaultProfile && names.includes(cfg.defaultProfile) ? cfg.defaultProfile : null;
+}
+
+/** Base `env` with the profile's env merged over it. */
+export function profileEnv(cfg, name) {
+  return { ...cfg.env, ...(name ? cfg.profiles?.[name]?.env : null) };
 }
 
 export function fillTemplate(template, vars) {

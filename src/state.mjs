@@ -24,11 +24,11 @@ export function readState(root) {
   }
 }
 
-/** Remove the state file, keeping the saved Combine selection (it outlives a run). */
+/** Remove the state file, keeping the saved Combine selection and env profiles (it outlives a run). */
 export function clearState(root) {
-  const combine = readState(root)?.combine;
+  const { combine, profiles } = readState(root) ?? {};
   rmSync(stateFile(root), { force: true });
-  if (combine) writeState(root, { combine });
+  if (combine || profiles) writeState(root, { ...(combine && { combine }), ...(profiles && { profiles }) });
 }
 
 /** Merge `patch` into the existing state. */

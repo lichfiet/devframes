@@ -63,6 +63,9 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 .row-actions { display: flex; gap: 2px; }
 .badges { grid-column: 2 / 4; display: flex; flex-wrap: wrap; gap: 4px; }
 .badge { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 1px 7px; font-size: 11px; color: var(--muted); cursor: pointer; }
+.profiles { grid-column: 2 / 4; display: flex; gap: 4px; }
+.badge.on { border-color: var(--accent); color: var(--accent); }
+.collapsed .profiles { display: none; }
 .badge:hover { border-color: var(--accent); color: var(--accent); }
 .err { grid-column: 2 / 4; font-size: 11px; color: var(--err); }
 

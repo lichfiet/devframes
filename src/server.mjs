@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join, extname } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { loadConfig, fillTemplate } from "./config.mjs";
+import { loadConfig, fillTemplate, activeProfile, profileEnv } from "./config.mjs";
 import { listWorktrees, worktreeDetail, worktreeChanges, fetchBase } from "./worktrees.mjs";
 import { SessionManager } from "./manager.mjs";
 import { allocatePort, httpUp, tcpUp } from "./ports.mjs";
@@ -61,7 +61,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       const template = wt.isMain ? cfg.mainCommand : cfg.command;
       if (!template) throw new Error("no dev command: nothing detected in package.json, set `command` in devframes.config.mjs");
       const command = fillTemplate(template, vars);
-      const env = Object.fromEntries(Object.entries(cfg.env).map(([k, v]) => [k, fillTemplate(String(v), vars)]));
+      const env = Object.fromEntries(Object.entries(profileEnv(cfg, profileOf(id))).map(([k, v]) => [k, fillTemplate(String(v), vars)]));
       log(`▶ ${wt.name} :${port}  ${command}`);
       return launchServer({
         command,
@@ -83,6 +83,18 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
   );
   reaper.unref();
 
+  const profileOf = (id) => activeProfile(cfg, readState(cfg.root)?.profiles?.[id]);
+
+  async function setProfile(id, name) {
+    if (!(name in (cfg.profiles ?? {}))) throw new Error(`unknown profile ${name}`);
+    updateState(cfg.root, { profiles: { ...readState(cfg.root)?.profiles, [id]: name } });
+    // Env is fixed at spawn, so a running server restarts to pick it up.
+    if (manager.get(id)?.status === "running" && !manager.get(id).handle?.external) {
+      manager.stop(id, `profile: ${name}`);
+      manager.start(id).catch(() => {});
+    }
+  }
+
   async function sessions() {
     await refreshWorktrees();
     return Promise.all(
@@ -101,6 +113,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
           url: s?.port ? `http://localhost:${s.port}` : null,
           external: Boolean(s?.handle?.external),
           pinned: manager.isPinned(w.id),
+          profile: profileOf(w.id),
           lastSeen: s?.lastSeen ?? null,
           rss: s?.pid ? groupRss(s.pid) : null,
           error: s?.error ?? null,
@@ -160,6 +173,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       links: cfg.links,
       maxRunning: cfg.maxRunning,
       idleTimeoutMs: cfg.idleTimeoutMs,
+      profiles: Object.keys(cfg.profiles ?? {}),
     }),
     "GET /api/sessions": async () => ({ sessions: await sessions(), maxRunning: manager.maxRunning }),
     "GET /api/changes": async (q) => {
@@ -186,6 +200,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       return { id: s.id, port: s.port };
     },
     "POST /api/stop": (q) => ({ ok: manager.stop(q.get("id")) }),
+    "POST /api/profile": async (q) => (await setProfile(q.get("id"), q.get("name")), { ok: true }),
     "POST /api/pin": (q) => (manager.pin(q.get("id"), q.get("on") !== "0"), { ok: true }),
     "POST /api/ping": (q) => ({ ok: manager.ping(q.get("id")) }),
     "POST /api/stopAll": () => (manager.stopAll(), { ok: true }),

@@ -106,6 +106,8 @@ export default {
   mainPort: null,                                 // fixed port for main (null = allocate)
   ports: [5175, 5224],                            // session port range
   env: { VITE_SOME_FLAG: "true" },                // extra env for every dev server
+  profiles: { fixtures: { env: { API: "off" } }, live: { env: { API: "local" } } },
+  defaultProfile: "fixtures",                     // see "Env profiles"
   readyPath: "/",                                 // polled; any status below 500 counts as up
   readyCheck: "http",                             // "tcp" = just wait for the port to accept connections
   baseRef: "origin/main",                         // Changes + Combine base; default: the remote's HEAD
@@ -142,6 +144,20 @@ command: "npx serve -l {port}"                    // static files, Node
 
 Linked paths go into the repo's shared `.git/info/exclude`, which is never
 committed, so they never show up as untracked files in any worktree.
+
+## Env profiles
+
+Some things you mock in dev, some you need live. Define named env sets and
+each session gets a switch in the sidebar:
+
+```js
+profiles: { fixtures: { env: { VITE_DEV_API: "fixtures" } }, live: { env: { VITE_DEV_API: "local" } } },
+defaultProfile: "fixtures",
+```
+
+The chosen profile's `env` is merged over the base `env` (placeholders work).
+Clicking a profile restarts that session's dev server with it; the choice is
+saved per session in the devframes state and survives restarts.
 
 ## How it works
 

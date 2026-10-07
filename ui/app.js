@@ -157,6 +157,23 @@ function renderSidebar() {
             svg(running ? ICON.stop : ICON.play),
           ),
         ),
+        state.config?.profiles?.length
+          ? el(
+              "div",
+              { className: "profiles", title: "Env profile; switching restarts this session" },
+              ...(state.config?.profiles ?? []).map((name) =>
+                el(
+                  "button",
+                  {
+                    className: `badge${name === s.profile ? " on" : ""}`,
+                    "aria-pressed": String(name === s.profile),
+                    onclick: (e) => (e.stopPropagation(), name !== s.profile && setProfile(s.id, name)),
+                  },
+                  name,
+                ),
+              ),
+            )
+          : null,
         s.badges.length
           ? el(
               "div",
@@ -335,6 +352,11 @@ async function start(id) {
 
 async function stop(id) {
   await api("POST", `/api/stop?id=${encodeURIComponent(id)}`).catch(() => {});
+  await refresh();
+}
+
+async function setProfile(id, name) {
+  await api("POST", `/api/profile?id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}`).catch((err) => state.errors.set(id, err.message));
   await refresh();
 }
 

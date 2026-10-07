@@ -123,3 +123,17 @@ test("baseRef follows the remote's HEAD (master), then falls back", async () => 
   sh(root, "remote", "remove", "origin");
   assert.equal(resolveBaseRef(root), "master");
 });
+
+test("profiles: saved choice wins, then defaultProfile, env merges over base", async () => {
+  const { activeProfile, profileEnv } = await import("../src/config.mjs");
+  const cfg = {
+    env: { A: "1", B: "base" },
+    profiles: { fixtures: { env: { B: "fx" } }, live: { env: { B: "live", C: "3" } } },
+    defaultProfile: "fixtures",
+  };
+  assert.equal(activeProfile(cfg, "live"), "live");
+  assert.equal(activeProfile(cfg, "gone"), "fixtures");
+  assert.equal(activeProfile({ ...cfg, defaultProfile: null }, null), null);
+  assert.deepEqual(profileEnv(cfg, "live"), { A: "1", B: "live", C: "3" });
+  assert.deepEqual(profileEnv(cfg, null), { A: "1", B: "base" });
+});
