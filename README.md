@@ -106,6 +106,7 @@ export default {
   mainPort: null,                                 // fixed port for main (null = allocate)
   ports: [5175, 5224],                            // session port range
   env: { VITE_SOME_FLAG: "true" },                // extra env for every dev server
+  readyPath: "/",                                 // polled; any status below 500 counts as up
   readyCheck: "http",                             // "tcp" = just wait for the port to accept connections
   baseRef: "origin/main",                         // Changes + Combine base; default: the remote's HEAD
   combine: { worktreeDir: ".devframes/combined", branch: "devframes/combined" },
