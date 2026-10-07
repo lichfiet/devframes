@@ -54,7 +54,14 @@ devframes init                  # writes devframes.config.mjs
 devframes                       # opens http://localhost:5180
 ```
 
-A plain Vite app works with no config at all. For anything else, set `command`.
+Most Node apps work with no config at all: devframes reads `package.json` to pick the
+dev command. `devframes init` writes it into the config and tells you what it found.
+For anything else, set `command`.
+
+**Works with:** Vite, Next.js, Astro, SvelteKit, Remix, Nuxt and Create React App,
+plus any package with a `dev` (or `start`) script. npm, pnpm, yarn and bun are picked
+from the lockfile. Non-Node servers (Django, Rails, a static server) work by setting
+`command`, see below.
 
 ## Commands
 
@@ -71,11 +78,13 @@ you were.
 ## Combine: preview unmerged branches together
 
 The sidebar's **Combine** section lists local branches that aren't merged into
-`origin/main`. Tick some and press **Build preview**:
+the base branch (the remote's HEAD, usually `origin/main`; see `baseRef`). Tick some and press **Build preview**:
 
-1. devframes keeps a dedicated worktree at `<repo>/.claude/worktrees/_combined` on
-   a local `preview/combined` branch.
-2. It fetches `origin` and resets **that worktree only** to `origin/main`.
+1. devframes keeps a dedicated worktree at `<repo>/.devframes/combined` on a local
+   `devframes/combined` branch (change both with `combine.worktreeDir` and
+   `combine.branch`). `.devframes/` goes into `.git/info/exclude`, so it never shows
+   up in `git status`.
+2. It fetches `origin` and resets **that worktree only** to the base ref.
 3. It merges each ticked branch. A branch that conflicts is aborted and listed as
    skipped, with its conflicting files.
 4. The combined session starts like any other.
@@ -91,13 +100,13 @@ defaults in [`src/config.mjs`](src/config.mjs), which is the full commented refe
 ```js
 export default {
   uiPort: 5180,                                   // the devframes UI
-  command: "npx vite --port {port} --strictPort", // {port} {root} {mainRoot} {cacheDir} {name}
+  command: "npx vite --port {port} --strictPort", // default: detected from package.json
+                                                  // {port} {root} {mainRoot} {cacheDir} {name}
   mainCommand: null,                              // main checkout's command (defaults to command)
   mainPort: null,                                 // fixed port for main (null = allocate)
   ports: [5175, 5224],                            // session port range
   env: { VITE_SOME_FLAG: "true" },                // extra env for every dev server
-  readyPath: "/",                                 // polled until it answers
-  baseRef: "origin/main",                         // what the Changes panel compares against
+XX                // what the Changes panel compares against
   viewports: [
     { name: "phone", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 },
@@ -108,6 +117,7 @@ export default {
   worktree: {
     // Symlinked from the main checkout when a worktree lacks its own. The badge's
     // one-click fix removes the link and runs install or setup.
+    // Default: node_modules, only when a package.json exists.
     link: [{ path: "node_modules", badge: "deps differ", when: "lockfileDiffers", fix: "install" }],
     exclude: true,                                // keep links out of git status
   },
@@ -116,6 +126,15 @@ export default {
   idleTimeoutMs: 15 * 60_000,
   maxRunning: 4,
 };
+```
+
+Non-Node projects set `command` and nothing else:
+
+```js
+command: "python manage.py runserver {port}"      // Django
+command: "bin/rails s -p {port}"                  // Rails
+command: "python3 -m http.server {port}"          // static files
+command: "npx serve -l {port}"                    // static files, Node
 ```
 
 Linked paths go into the repo's shared `.git/info/exclude`, which is never

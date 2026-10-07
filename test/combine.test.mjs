@@ -49,7 +49,7 @@ test("merges clean branches, skips and aborts conflicting ones", async () => {
   assert.deepEqual(res.merged, ["a", "b"]);
   assert.deepEqual(res.skipped, [{ branch: "c", files: ["shared.txt"] }]);
   const wt = combinedPath(root);
-  assert.equal(git(wt, "branch", "--show-current").trim(), "preview/combined");
+  assert.equal(git(wt, "branch", "--show-current").trim(), "devframes/combined");
   assert.equal(git(wt, "status", "--porcelain").trim(), "");
   assert.ok(existsSync(join(wt, "b.txt")));
   assert.equal(git(root, "branch", "--show-current").trim(), "main");
@@ -59,7 +59,20 @@ test("merges clean branches, skips and aborts conflicting ones", async () => {
   assert.equal(git(wt, "show", "HEAD:shared.txt"), "base\n");
 });
 
-test("reset --hard refuses anywhere but the _combined worktree", async () => {
+test("reset --hard refuses anywhere but the combine worktree", async () => {
   const { root } = fixture();
   await assert.rejects(resetCombined(root, root, "origin/main"), /refusing/);
+});
+
+test("worktreeDir and branch are configurable; .devframes is excluded", async () => {
+  const { root } = fixture();
+  const combine = { worktreeDir: ".claude/worktrees/_combined", branch: "preview/combined" };
+  await buildCombined(root, ["a"], { fetch: false, combine });
+  const wt = combinedPath(root, combine);
+  assert.ok(wt.endsWith("/.claude/worktrees/_combined"));
+  assert.equal(git(wt, "branch", "--show-current").trim(), "preview/combined");
+  await assert.rejects(resetCombined(root, combinedPath(root), "origin/main", combine), /refusing/);
+  await buildCombined(root, ["b"], { fetch: false });
+  assert.match(git(root, "status", "--porcelain", "--ignored"), /!! \.devframes\//);
+  assert.equal(git(root, "status", "--porcelain").trim(), "");
 });

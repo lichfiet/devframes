@@ -6,12 +6,12 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, openSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { httpUp } from "./ports.mjs";
+import { httpUp, tcpUp } from "./ports.mjs";
 
 /**
  * @returns {Promise<{ port, pid, stop, onExit, log }>}
  */
-export async function launchServer({ command, cwd, env, port, logFile, readyPath = "/", readyTimeoutMs = 120_000 }) {
+export async function launchServer({ command, cwd, env, port, logFile, readyPath = "/", readyCheck = "http", readyTimeoutMs = 120_000 }) {
   mkdirSync(join(logFile, ".."), { recursive: true });
   const out = openSync(logFile, "a");
   const child = spawn(command, {
@@ -32,10 +32,10 @@ export async function launchServer({ command, cwd, env, port, logFile, readyPath
   const until = Date.now() + readyTimeoutMs;
   while (true) {
     if (exited) throw new Error(`dev server exited during startup (see ${logFile})`);
-    if (await httpUp(port, readyPath)) break;
+    if (await (readyCheck === "tcp" ? tcpUp(port) : httpUp(port, readyPath))) break;
     if (Date.now() > until) {
       stop();
-      throw new Error(`timed out after ${Math.round(readyTimeoutMs / 1000)}s waiting for :${port}${readyPath}`);
+      throw new Error(`timed out after ${Math.round(readyTimeoutMs / 1000)}s waiting for :${port}${readyCheck === "tcp" ? "" : readyPath}`);
     }
     await new Promise((r) => setTimeout(r, 500));
   }

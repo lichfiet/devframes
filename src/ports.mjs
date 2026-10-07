@@ -1,5 +1,5 @@
 /** Port helpers. */
-import { createServer } from "node:net";
+import { createServer, connect } from "node:net";
 
 /** True when nothing is listening on `port` (bind test on 127.0.0.1). */
 export function portFree(port) {
@@ -19,6 +19,20 @@ export async function httpUp(port, path = "/", timeoutMs = 2_000) {
   } catch {
     return false;
   }
+}
+
+/** True when something accepts TCP connections on `port`. */
+export function tcpUp(port, timeoutMs = 2_000) {
+  return new Promise((resolve) => {
+    const sock = connect({ port, host: "127.0.0.1" });
+    const done = (ok) => {
+      sock.destroy();
+      resolve(ok);
+    };
+    sock.setTimeout(timeoutMs, () => done(false));
+    sock.once("connect", () => done(true));
+    sock.once("error", () => done(false));
+  });
 }
 
 /**
