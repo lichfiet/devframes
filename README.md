@@ -81,8 +81,7 @@ export default {
 };
 ```
 
-`src/config.mjs` (`DEFAULTS`) is the full, commented reference. See
-`open-lingo/lingo/devframes.config.mjs` for a real one.
+`src/config.mjs` (`DEFAULTS`) is the full, commented reference.
 
 Anything you leave out falls back to a default, so a plain Vite app needs little
 more than `command`.
