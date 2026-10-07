@@ -1,7 +1,7 @@
 {
   "name": "devframes",
   "version": "0.1.0",
-  "description": "Side-by-side phone + desktop live previews of every git worktree's dev server — switch between parallel sessions instantly.",
+  "description": "Side-by-side phone + desktop live previews of every git worktree's dev server \u2014 switch between parallel sessions instantly.",
   "type": "module",
   "bin": {
     "devframes": "./bin/devframes.mjs"
@@ -23,5 +23,13 @@
     "test": "node --test test/*.test.mjs",
     "start": "node bin/devframes.mjs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lichfiet/devframes.git"
+  },
+  "homepage": "https://github.com/lichfiet/devframes#readme",
+  "bugs": {
+    "url": "https://github.com/lichfiet/devframes/issues"
+  }
 }
