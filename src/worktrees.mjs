@@ -94,7 +94,7 @@ export function parseStatus(text) {
  * versus `baseRef`, commits on the base it hasn't picked up yet, and its
  * uncommitted files. Read-only; never fetches (the caller decides).
  */
-export async function worktreeChanges(path, baseRef = "origin/main", limit = 20) {
+export async function worktreeChanges(path, baseRef, limit = 20) {
   const git = (args) =>
     run("git", ["-C", path, ...args], { maxBuffer: 8 * 1024 * 1024 })
       .then((r) => r.stdout)
@@ -120,7 +120,8 @@ export async function worktreeChanges(path, baseRef = "origin/main", limit = 20)
 }
 
 /** `git fetch` the remote half of a ref like "origin/main" (no-op for local refs). */
-export async function fetchBase(root, baseRef = "origin/main") {
+export async function fetchBase(root, baseRef) {
+  if (!baseRef) return;
   const slash = baseRef.indexOf("/");
   if (slash < 0) return;
   await run("git", ["-C", root, "fetch", "-q", baseRef.slice(0, slash), baseRef.slice(slash + 1)], { timeout: 20_000 });

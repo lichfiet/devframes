@@ -11,16 +11,22 @@ import { pathToFileURL } from "node:url";
 export const CONFIG_FILES = ["devframes.config.mjs", "devframes.config.js", "devframes.config.json"];
 
 export const DEFAULTS = Object.freeze({
-  /** Branch the Changes panel compares each worktree against (ahead/behind, incoming). */
-  baseRef: "origin/main",
+  /**
+   * Ref the Changes panel and Combine compare against (ahead/behind, incoming,
+   * reset base). null = the remote's HEAD, else origin/main, origin/master,
+   * main, master (see resolveBaseRef).
+   */
+  baseRef: null,
   /** Port the devframes UI itself listens on. */
   uiPort: 5180,
   /**
-   * Dev server command for a session. Placeholders:
+   * Dev server command for a session. null = detect from package.json (Vite,
+   * Next.js, Astro, SvelteKit, Remix, Nuxt, CRA, or a plain `dev` script).
+   * Non-Node projects set it themselves. Placeholders:
    *   {port} {root} (the worktree) {mainRoot} (the main checkout)
    *   {cacheDir} (a per-session scratch dir) {name}
    */
-  command: "npx vite --port {port} --strictPort",
+  command: null,
   /** Command for the main checkout; defaults to `command`. */
   mainCommand: null,
   /** Fixed port for the main checkout (null = allocate from `ports`). */
@@ -31,6 +37,8 @@ export const DEFAULTS = Object.freeze({
   env: {},
   /** Path polled until it answers (<500) before a session counts as running. */
   readyPath: "/",
+  /** "http" = readyPath answers with a status below 500; "tcp" = the port accepts connections. */
+  readyCheck: "http",
   readyTimeoutMs: 120_000,
   /** Viewports drawn side by side for the active session. */
   viewports: [
@@ -49,9 +57,14 @@ export const DEFAULTS = Object.freeze({
    * `fix` ("install" → installCommand, "setup" → setupCommand).
    */
   worktree: {
-    link: [{ path: "node_modules", badge: "deps differ", when: "lockfileDiffers", fix: "install" }],
+    link: null, // auto: node_modules when a package.json exists, else nothing
     /** Keep the links out of every worktree's `git status` via info/exclude. */
     exclude: true,
+  },
+  /** Where Combine builds its throwaway preview branch (relative to the repo root). */
+  combine: {
+    worktreeDir: ".devframes/combined",
+    branch: "devframes/combined",
   },
   /** Lockfile compared against main's for the "deps differ" badge. */
   lockfile: null, // auto-detect
@@ -93,8 +106,36 @@ export function findRepoRoot(cwd = process.cwd()) {
   }
 }
 
+export const NODE_MODULES_LINK = Object.freeze({
+  path: "node_modules",
+  badge: "deps differ",
+  when: "lockfileDiffers",
+  fix: "install",
+});
+
+const git = (root, args) => {
+  try {
+    return execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The ref to compare against: the remote's HEAD (`origin/HEAD`), else the first
+ * of origin/main, origin/master, main, master that exists, else "origin/main".
+ */
+export function resolveBaseRef(root) {
+  const head = git(root, ["symbolic-ref", "--short", "refs/remotes/origin/HEAD"]);
+  if (head && git(root, ["rev-parse", "--verify", "-q", head]) != null) return head;
+  for (const ref of ["origin/main", "origin/master", "main", "master"]) {
+    if (git(root, ["rev-parse", "--verify", "-q", ref]) != null) return ref;
+  }
+  return "origin/main";
+}
+
 export function detectLockfile(root) {
-  for (const f of ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lockb"]) {
+  for (const f of ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"]) {
     if (existsSync(join(root, f))) return f;
   }
   return null;
@@ -107,8 +148,53 @@ export function installCommandFor(lockfile) {
       "package-lock.json": "npm ci",
       "yarn.lock": "yarn install --frozen-lockfile",
       "bun.lockb": "bun install --frozen-lockfile",
+      "bun.lock": "bun install --frozen-lockfile",
     }[lockfile] ?? "npm install"
   );
+}
+
+function readPackageJson(root) {
+  try {
+    return JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+const RUNNERS = { "pnpm-lock.yaml": "pnpm exec", "yarn.lock": "yarn", "bun.lockb": "bunx", "bun.lock": "bunx" };
+const SCRIPT_RUNNERS = { "pnpm-lock.yaml": "pnpm run", "yarn.lock": "yarn", "bun.lockb": "bun run", "bun.lock": "bun run" };
+const PORT_FLAG_TOOLS = /\b(vite|rsbuild|rspack|webpack(-dev-server)?|ng serve|storybook|astro|nuxt|next)\b/;
+
+/**
+ * Pick a dev command from package.json and the lockfile. Returns
+ * `{ command, framework }`, or null when there's nothing to go on (no
+ * package.json, or no dev/start script and no known framework).
+ */
+export function detectCommand(root) {
+  const pkg = readPackageJson(root);
+  if (!pkg) return null;
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const has = (name) => name in deps;
+  const lock = detectLockfile(root);
+  const x = RUNNERS[lock] ?? "npx";
+  const hit = (framework, command) => ({ framework, command });
+  if (has("next")) return hit("Next.js", `${x} next dev -p {port}`);
+  if (has("nuxt") || has("nuxt3")) return hit("Nuxt", `${x} nuxt dev --port {port}`);
+  if (has("astro")) return hit("Astro", `${x} astro dev --port {port}`);
+  if (has("@sveltejs/kit")) return hit("SvelteKit", `${x} vite dev --port {port} --strictPort`);
+  if (Object.keys(deps).some((d) => d.startsWith("@remix-run/"))) {
+    return has("vite")
+      ? hit("Remix", `${x} remix vite:dev --port {port}`)
+      : hit("Remix", `PORT={port} ${x} remix dev`);
+  }
+  if (has("react-scripts")) return hit("Create React App", `BROWSER=none PORT={port} ${x} react-scripts start`);
+  if (has("vite")) return hit("Vite", `${x} vite --port {port} --strictPort`);
+  const script = pkg.scripts?.dev ? "dev" : pkg.scripts?.start ? "start" : null;
+  if (!script) return null;
+  const run = SCRIPT_RUNNERS[lock] ?? "npm run";
+  const sep = run === "npm run" ? " --" : "";
+  const flag = PORT_FLAG_TOOLS.test(pkg.scripts[script]) ? `${sep} --port {port}` : "";
+  return hit(`package.json "${script}" script`, `PORT={port} ${run} ${script}${flag}`);
 }
 
 export async function loadConfig(root = findRepoRoot()) {
@@ -127,7 +213,17 @@ export async function loadConfig(root = findRepoRoot()) {
   cfg.configFile = file;
   cfg.lockfile ??= detectLockfile(root);
   cfg.installCommand ??= installCommandFor(cfg.lockfile);
+  cfg.baseRef ??= resolveBaseRef(root);
+  if (cfg.command == null) {
+    const found = detectCommand(root);
+    cfg.command = found?.command ?? null;
+    cfg.detected = found;
+  }
   cfg.mainCommand ??= cfg.command;
+  cfg.worktree = {
+    ...cfg.worktree,
+    link: cfg.worktree.link ?? (existsSync(join(root, "package.json")) ? [{ ...NODE_MODULES_LINK }] : []),
+  };
   return cfg;
 }
 
@@ -135,24 +231,32 @@ export function fillTemplate(template, vars) {
   return template.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
 }
 
-export const STARTER_CONFIG = `// devframes config — every key is optional; see the devframes README.
+/** A starter config; `command` is prefilled when one was detected. */
+export function starterConfig(detected = null) {
+  const command = detected
+    ? `  command: ${JSON.stringify(detected.command)},`
+    : `  // command: "python manage.py runserver {port}",  // nothing detected: set your dev command`;
+  return `// devframes config — every key is optional; see the devframes README.
 export default {
   // Dev server per session. {port} {root} {mainRoot} {cacheDir} {name}
-  command: "npx vite --port {port} --strictPort",
+${command}
   // mainPort: 5174,                 // pin the main checkout to a port
   ports: [5175, 5224],
   env: {},
-  readyPath: "/",
+  readyPath: "/",                    // any status below 500 counts as up
+  // readyCheck: "tcp",              // for servers that don't speak HTTP first
+  // baseRef: "origin/main",         // default: the remote's HEAD
   viewports: [
     { name: "phone", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 },
   ],
   routes: ["/"],
-  worktree: {
-    link: [{ path: "node_modules", badge: "deps differ", when: "lockfileDiffers", fix: "install" }],
-  },
+  // combine: { worktreeDir: ".devframes/combined", branch: "devframes/combined" },
   // setupCommand: "npm run codegen",
   idleTimeoutMs: 15 * 60_000,
   maxRunning: 4,
 };
 `;
+}
+
+export const STARTER_CONFIG = starterConfig();

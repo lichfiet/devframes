@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { loadConfig, fillTemplate } from "./config.mjs";
 import { listWorktrees, worktreeDetail, worktreeChanges, fetchBase } from "./worktrees.mjs";
 import { SessionManager } from "./manager.mjs";
-import { allocatePort, httpUp } from "./ports.mjs";
+import { allocatePort, httpUp, tcpUp } from "./ports.mjs";
 import { launchServer, groupRss } from "./process.mjs";
 import { prepareWorktree, runFix } from "./setup.mjs";
 import { readState, updateState, clearState } from "./state.mjs";
@@ -45,7 +45,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       if (!wt) throw new Error(`unknown session ${id}`);
       // The main checkout may already be served by something else (a dev
       // server the user started). Adopt it rather than fighting for the port.
-      if (wt.isMain && cfg.mainPort && (await httpUp(cfg.mainPort, cfg.readyPath))) {
+      if (wt.isMain && cfg.mainPort && (await (cfg.readyCheck === "tcp" ? tcpUp(cfg.mainPort) : httpUp(cfg.mainPort, cfg.readyPath)))) {
         return { port: cfg.mainPort, pid: null, external: true, stop() {}, onExit() {} };
       }
       if (!wt.isMain) badges.set(id, await prepareWorktree(cfg, wt.path));
@@ -58,7 +58,9 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
         name: wt.name,
         cacheDir: join(tmpdir(), "devframes-cache", wt.name),
       };
-      const command = fillTemplate(wt.isMain ? cfg.mainCommand : cfg.command, vars);
+      const template = wt.isMain ? cfg.mainCommand : cfg.command;
+      if (!template) throw new Error("no dev command: nothing detected in package.json, set `command` in devframes.config.mjs");
+      const command = fillTemplate(template, vars);
       const env = Object.fromEntries(Object.entries(cfg.env).map(([k, v]) => [k, fillTemplate(String(v), vars)]));
       log(`▶ ${wt.name} :${port}  ${command}`);
       return launchServer({
@@ -68,6 +70,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
         port,
         logFile: join(logDir, `${wt.name}.log`),
         readyPath: cfg.readyPath,
+        readyCheck: cfg.readyCheck,
         readyTimeoutMs: cfg.readyTimeoutMs,
       });
     },
@@ -132,10 +135,10 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
     combineBuilding = true;
     try {
       updateState(cfg.root, { combine: { selected: branches } });
-      const id = (await refreshWorktrees()).find((w) => w.path === combinedPath(cfg.root))?.id;
+      const id = (await refreshWorktrees()).find((w) => w.path === combinedPath(cfg.root, cfg.combine))?.id;
       if (id) manager.stop(id, "rebuilding combined");
-      combineResult = await buildCombined(cfg.root, branches, { baseRef: cfg.baseRef, log });
-      const wt = (await refreshWorktrees()).find((w) => w.path === combinedPath(cfg.root));
+      combineResult = await buildCombined(cfg.root, branches, { baseRef: cfg.baseRef, combine: cfg.combine, log });
+      const wt = (await refreshWorktrees()).find((w) => w.path === combinedPath(cfg.root, cfg.combine));
       manager.clearError(wt.id);
       await manager.start(wt.id).catch((err) => (combineResult.startError = err.message));
       return combineResult;
@@ -170,7 +173,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       return worktreeChanges(wt.path, cfg.baseRef);
     },
     "GET /api/combine": async () => ({
-      branches: await combineCandidates(cfg.root, cfg.baseRef),
+      branches: await combineCandidates(cfg.root, cfg.baseRef, cfg.combine),
       selected: readState(cfg.root)?.combine?.selected ?? [],
       building: combineBuilding,
       result: combineResult,

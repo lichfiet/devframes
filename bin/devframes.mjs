@@ -9,7 +9,7 @@
  */
 import { existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { createDevframes, findRepoRoot, STARTER_CONFIG } from "../src/index.mjs";
+import { createDevframes, findRepoRoot, starterConfig, detectCommand, resolveBaseRef } from "../src/index.mjs";
 import { readState, clearState, isAlive } from "../src/state.mjs";
 
 const args = process.argv.slice(2);
@@ -37,8 +37,15 @@ if (cmd === "init") {
     console.error(`${file} exists (use --force to overwrite)`);
     process.exit(1);
   }
-  writeFileSync(file, STARTER_CONFIG);
+  const found = detectCommand(root);
+  writeFileSync(file, starterConfig(found));
   console.log(`wrote ${file}`);
+  console.log(
+    found
+      ? `detected ${found.framework}: ${found.command}`
+      : "no dev command detected: set `command` in the config (see the README for Django, Rails, static examples)",
+  );
+  console.log(`base ref: ${resolveBaseRef(root)}`);
   process.exit(0);
 }
 
