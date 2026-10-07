@@ -24,8 +24,16 @@ export function readState(root) {
   }
 }
 
+/** Remove the state file, keeping the saved Combine selection (it outlives a run). */
 export function clearState(root) {
+  const combine = readState(root)?.combine;
   rmSync(stateFile(root), { force: true });
+  if (combine) writeState(root, { combine });
+}
+
+/** Merge `patch` into the existing state. */
+export function updateState(root, patch) {
+  writeState(root, { ...readState(root), ...patch });
 }
 
 export function isAlive(pid) {

@@ -17,7 +17,8 @@ import { SessionManager } from "./manager.mjs";
 import { allocatePort, httpUp } from "./ports.mjs";
 import { launchServer, groupRss } from "./process.mjs";
 import { prepareWorktree, runFix } from "./setup.mjs";
-import { writeState, clearState } from "./state.mjs";
+import { readState, updateState, clearState } from "./state.mjs";
+import { combineCandidates, buildCombined, combinedPath } from "./combine.mjs";
 
 const UI_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "ui");
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml" };
@@ -124,6 +125,28 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
     if (wasRunning) manager.start(id).catch(() => {});
   }
 
+  let combineBuilding = false;
+  let combineResult = null;
+  async function combine(branches) {
+    if (combineBuilding) throw new Error("a combine build is already running");
+    combineBuilding = true;
+    try {
+      updateState(cfg.root, { combine: { selected: branches } });
+      const id = (await refreshWorktrees()).find((w) => w.path === combinedPath(cfg.root))?.id;
+      if (id) manager.stop(id, "rebuilding combined");
+      combineResult = await buildCombined(cfg.root, branches, { baseRef: cfg.baseRef, log });
+      const wt = (await refreshWorktrees()).find((w) => w.path === combinedPath(cfg.root));
+      manager.clearError(wt.id);
+      await manager.start(wt.id).catch((err) => (combineResult.startError = err.message));
+      return combineResult;
+    } catch (err) {
+      combineResult = { error: err.message, at: Date.now() };
+      throw err;
+    } finally {
+      combineBuilding = false;
+    }
+  }
+
   let lastFetch = 0;
   const routes = {
     "GET /api/config": () => ({
@@ -146,6 +169,14 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       }
       return worktreeChanges(wt.path, cfg.baseRef);
     },
+    "GET /api/combine": async () => ({
+      branches: await combineCandidates(cfg.root, cfg.baseRef),
+      selected: readState(cfg.root)?.combine?.selected ?? [],
+      building: combineBuilding,
+      result: combineResult,
+    }),
+    "POST /api/combine": async (q) => combine((q.get("branches") ?? "").split(",").filter(Boolean)),
+    "POST /api/rebuild": async () => combine(readState(cfg.root)?.combine?.selected ?? []),
     "POST /api/start": async (q) => {
       manager.clearError(q.get("id"));
       const s = await manager.start(q.get("id"));
@@ -202,7 +233,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
       new Promise((resolve, reject) => {
         http.once("error", reject);
         http.listen(cfg.uiPort, "127.0.0.1", async () => {
-          writeState(cfg.root, { pid: process.pid, uiPort: cfg.uiPort, startedAt: Date.now() });
+          updateState(cfg.root, { pid: process.pid, uiPort: cfg.uiPort, startedAt: Date.now() });
           await refreshWorktrees();
           resolve(`http://localhost:${cfg.uiPort}`);
         });

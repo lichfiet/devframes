@@ -19,6 +19,15 @@
         </div>
       </header>
       <ul class="sessions" id="sessions" aria-label="Sessions"></ul>
+      <section class="combine" id="combine">
+        <div class="combine-head"><strong>Combine</strong><span class="muted"> unmerged branches</span></div>
+        <ul id="combineList"></ul>
+        <div class="combine-actions">
+          <button class="btn" id="combineBuild">Build preview</button>
+          <button class="btn" id="combineRebuild" title="Re-run with the saved selection">Rebuild</button>
+        </div>
+        <div id="combineResult" class="combine-result"></div>
+      </section>
       <ul class="links" id="links"></ul>
       <footer class="side-foot">
         <div id="summary" class="muted"></div>

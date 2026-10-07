@@ -74,6 +74,14 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 .btn.danger:hover { border-color: var(--err); color: var(--err); }
 .side-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border-top: 1px solid var(--line); font-size: 12px; }
 
+.combine { padding: 8px 10px; border-top: 1px solid var(--line); font-size: 12px; max-height: 40%; overflow: auto; }
+.combine ul { list-style: none; margin: 6px 0; padding: 0; }
+.combine li label { display: flex; gap: 6px; align-items: center; padding: 1px 0; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combine-actions { display: flex; gap: 6px; }
+.combine-result { margin-top: 6px; color: var(--muted); }
+.combine-result .skip { color: var(--warn); }
+.combine-result .err { color: var(--err); }
+.collapsed .combine { display: none; }
 .collapsed .brand, .collapsed .row-main, .collapsed .row-actions, .collapsed .badges, .collapsed .err,
 .collapsed .links, .collapsed .side-foot > *:not(#stopAll) { display: none; }
 .collapsed .side-foot { justify-content: center; }

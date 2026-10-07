@@ -38,6 +38,18 @@ devframes stop          # stop the UI and every dev server it started
 
 In the UI, `[` and `]` cycle sessions. The URL hash remembers the active session and view mode.
 
+## Combine
+
+Try several unmerged branches together. The sidebar's **Combine** section lists
+local branches not merged into `origin/main` (plus any checked out in a
+worktree). Tick some and press **Build preview**: devframes keeps a worktree at
+`<repo>/.claude/worktrees/_combined` on `preview/combined`, runs `git fetch
+origin`, resets that worktree (only) to `origin/main`, then merges each ticked
+branch. A branch that conflicts is aborted and reported as skipped, with its
+conflicting files. The `_combined` session is then (re)started like any other.
+**Rebuild** repeats the build with the saved selection (kept in the state file).
+Nothing is ever pushed, and `reset --hard` refuses to run outside `_combined`.
+
 ## Config (`devframes.config.mjs`)
 
 ```js

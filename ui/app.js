@@ -394,6 +394,74 @@ function cycle(dir) {
   activate(ring[(i + dir + ring.length) % ring.length].id);
 }
 
+/* ── Combine ─────────────────────────────────────────────────── */
+
+const combine = { branches: [], selected: new Set(), building: false, result: null, ready: false };
+const picked = () => combine.branches.filter((b) => combine.selected.has(b));
+
+function renderCombine() {
+  $("combineList").replaceChildren(
+    ...combine.branches.map((b) =>
+      el(
+        "li",
+        {},
+        el(
+          "label",
+          { title: b },
+          el("input", {
+            type: "checkbox",
+            checked: combine.selected.has(b),
+            onchange: (e) => (e.target.checked ? combine.selected.add(b) : combine.selected.delete(b)),
+          }),
+          b,
+        ),
+      ),
+    ),
+  );
+  $("combineBuild").disabled = combine.building || !picked().length;
+  $("combineRebuild").disabled = combine.building || !combine.selected.size;
+  const r = combine.result;
+  const rows = [];
+  if (combine.building) rows.push(el("div", {}, "Building…"));
+  else if (r?.error) rows.push(el("div", { className: "err" }, r.error));
+  else if (r) {
+    rows.push(el("div", {}, `Built ${new Date(r.at).toLocaleTimeString()}`));
+    for (const b of r.merged) rows.push(el("div", {}, `merged: ${b}`));
+    for (const k of r.skipped)
+      rows.push(el("div", { className: "skip" }, `skipped: ${k.branch} (${k.files.length ? `conflicts in ${k.files.join(", ")}` : k.error})`));
+    if (r.startError) rows.push(el("div", { className: "err" }, r.startError));
+  }
+  $("combineResult").replaceChildren(...rows);
+}
+
+async function loadCombine() {
+  try {
+    const d = await api("GET", "/api/combine");
+    combine.branches = d.branches;
+    combine.result = d.result;
+    combine.building = d.building;
+    if (!combine.ready) combine.selected = new Set(d.selected);
+    combine.ready = true;
+  } catch (err) {
+    console.warn(err);
+  }
+  renderCombine();
+}
+
+async function buildCombine(path) {
+  combine.building = true;
+  renderCombine();
+  try {
+    await api("POST", path);
+  } catch (err) {
+    combine.result = { error: err.message, at: Date.now() };
+  }
+  const id = "_combined";
+  await loadCombine();
+  await refresh();
+  if (state.sessions.some((s) => s.id === id)) activate(id);
+}
+
 /* ── Boot ────────────────────────────────────────────────────── */
 
 async function boot() {
@@ -406,6 +474,9 @@ async function boot() {
   $("path").value = state.config.startPath;
   renderLinks();
   await refresh();
+  await loadCombine();
+  $("combineBuild").onclick = () => buildCombine(`/api/combine?branches=${encodeURIComponent(picked().join(","))}`);
+  $("combineRebuild").onclick = () => buildCombine("/api/rebuild");
   if (h.s && state.sessions.some((s) => s.id === h.s)) activate(h.s);
 
   initChanges(() => state.active);
