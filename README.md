@@ -30,8 +30,10 @@ tabs that forget where you were. devframes turns that into one sidebar and one v
   port. 📌 pins a session so it never idles out.
 - **Instant switching.** Running sessions keep their frames mounted, so switching
   keeps each session's route, scroll position and open dialogs. `[` and `]` cycle.
-- **Real device sizes.** Phone, desktop, tablet (rotatable) or all of them at once,
-  with quick-route buttons for the pages you check most.
+- **Real device sizes.** Toggle phone, desktop and tablet (rotatable) in any
+  combination, at least one always on.
+- **Search and quick nav.** A toolbar box filters your `routes` or takes any path
+  (Enter navigates); routes show as buttons, or a dropdown when there are many.
 - **Combine branches.** Tick unmerged branches and preview them merged together on
   top of `origin/main`, without touching main or any other worktree.
 - **Changes panel.** What each worktree has that main doesn't, and what main has
@@ -72,7 +74,7 @@ from the lockfile. Non-Node servers (Django, Rails, a static server) work by set
 | `devframes status` | Show what's running |
 | `devframes stop` | Stop the UI and every dev server it started |
 
-The URL hash remembers the active session and view mode, so a refresh lands where
+The URL hash remembers the active session and selected viewports, so a refresh lands where
 you were.
 
 ## Combine: preview unmerged branches together

@@ -36,19 +36,28 @@
     </aside>
 
     <main class="main">
-      <div class="toolbar">
-        <div class="seg" id="viewModes" role="group" aria-label="Viewports"></div>
-        <form id="pathForm" class="path">
-          <input id="path" spellcheck="false" autocomplete="off" aria-label="Path" />
-        </form>
-        <div id="quick" class="quick"></div>
-        <button class="icon-btn" id="reload" title="Reload active session's frames" aria-label="Reload">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
+      <div class="toolbar" id="toolbar">
+        <div class="tb-info" id="tbInfo" title="Active session"></div>
+        <div class="tb-mid">
+          <form id="pathForm" class="path" role="search" autocomplete="off">
+            <input id="path" spellcheck="false" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="routeMenu" aria-label="Search routes or type a path" placeholder="Search routes or type a path" />
+            <button type="button" class="icon-btn" id="quickBtn" title="Quick routes" aria-label="Quick routes" aria-haspopup="listbox">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <ul id="routeMenu" class="menu" role="listbox" hidden></ul>
+          </form>
+          <div id="quick" class="quick"></div>
+        </div>
         <button class="btn" id="changesBtn" title="What changed in this session: commits and uncommitted files">Changes</button>
-        <a class="icon-btn" id="openTab" target="_blank" rel="noreferrer" title="Open in a new tab" aria-label="Open in a new tab">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
+        <div class="tb-right">
+          <div class="seg" id="viewModes" role="group" aria-label="Viewports (toggle any combination)"></div>
+          <button class="icon-btn" id="reload" title="Reload active session's frames" aria-label="Reload">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <a class="icon-btn" id="openTab" target="_blank" rel="noreferrer" title="Open in a new tab" aria-label="Open in a new tab">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
       </div>
       <aside class="changes" id="changes" hidden aria-label="Changes">
         <header class="changes-head">

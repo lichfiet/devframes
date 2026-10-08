@@ -99,12 +99,23 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; background: transparent; padding: 4px 10px; cursor: pointer; color: var(--muted); }
 .seg button + button { border-left: 1px solid var(--line); }
-.seg button.on { background: var(--active); color: var(--text); }
-.path { flex: 1 1 200px; max-width: 360px; }
-.path input { width: 100%; border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 5px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
-.quick { display: flex; gap: 4px; flex-wrap: wrap; }
+.seg button.on { background: var(--active); color: var(--text); font-weight: 600; }
+.tb-info { flex: 0 1 auto; min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
+.tb-info strong { color: var(--text); }
+.tb-mid { flex: 1 1 280px; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.tb-right { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.path { position: relative; flex: 1 1 160px; min-width: 0; max-width: 420px; display: flex; align-items: center; gap: 2px; }
+.path input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg); border-radius: 7px; padding: 5px 8px; font-family: ui-monospace, monospace; font-size: 12px; }
+.menu { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 10; list-style: none; margin: 0; padding: 4px; max-height: 50vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.12); }
+.menu[hidden] { display: none; }
+.menu li { padding: 5px 8px; border-radius: 6px; cursor: pointer; font: 12px ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu li:hover, .menu li.hi { background: var(--hover); }
+.menu li.go { color: var(--muted); }
+.quick { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
 .quick button { border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 3px 9px; cursor: pointer; font-size: 12px; }
 .quick button:hover { background: var(--hover); }
+.quick:empty, .quick[hidden] { display: none; }
+@media (max-width: 700px) { .tb-info { max-width: none; flex-basis: 100%; } .tb-mid { flex-basis: 100%; } .tb-right { margin-left: 0; } .path { max-width: none; } }
 
 .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; padding: 16px; }
 .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
@@ -120,7 +131,7 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 /* Changes panel (ui/changes.js): overlays the right edge of the stage. */
 .main { position: relative; }
 .changes {
-  position: absolute; right: 0; top: 48px; bottom: 0; z-index: 5;
+  position: absolute; right: 0; top: var(--toolbar-h, 48px); bottom: 0; z-index: 5;
   width: min(380px, 90%); display: flex; flex-direction: column;
   background: var(--panel); border-left: 1px solid var(--line);
   box-shadow: -8px 0 24px rgb(0 0 0 / 0.08);

@@ -214,21 +214,62 @@ function renderLinks() {
 
 /* ── Toolbar ─────────────────────────────────────────────────── */
 
+const QUICK_INLINE_MAX = 4; // more routes than this collapse into the dropdown
+
 function renderToolbar() {
   const vps = state.config.viewports;
-  const mk = (label, on, click) => el("button", { className: on ? "on" : "", onclick: click, type: "button" }, label);
-  const allOn = vps.every((v) => state.visible.has(v.name));
   $("viewModes").replaceChildren(
     ...vps.map((v) =>
-      mk(v.name, state.visible.has(v.name) && !allOn, () => setVisible(new Set([v.name]))),
+      el(
+        "button",
+        {
+          type: "button",
+          className: state.visible.has(v.name) ? "on" : "",
+          "aria-pressed": String(state.visible.has(v.name)),
+          title: `Toggle ${v.name}`,
+          onclick: () => toggleVisible(v.name),
+        },
+        v.name,
+      ),
     ),
-    ...(vps.length > 1 ? [mk(vps.length > 2 ? "all" : "both", allOn, () => setVisible(new Set(vps.map((v) => v.name))))] : []),
   );
-  $("quick").replaceChildren(
-    ...state.config.routes.map((r) => el("button", { type: "button", onclick: () => navigate(r) }, r)),
-  );
+  const routes = state.config.routes;
+  const inline = routes.length > 0 && routes.length <= QUICK_INLINE_MAX;
+  $("quick").hidden = !inline;
+  $("quick").replaceChildren(...(inline ? routes.map((r) => el("button", { type: "button", onclick: () => navigate(r) }, r)) : []));
+  $("quickBtn").hidden = !routes.length;
   const s = activeSession();
-  $("openTab").href = s?.url ? s.url + ($("path").value || "/") : "#";
+  $("tbInfo").replaceChildren(...(s ? [el("strong", {}, s.name), s.branch && s.branch !== s.name ? ` · ${s.branch}` : ""] : []));
+  $("openTab").href = s?.url ? s.url + (pairs.get(s.id)?.path ?? state.config.startPath) : "#";
+}
+
+/* Route menu: filters config routes as you type; Enter goes to the highlighted
+   route, or to whatever path you typed. */
+const menu = { items: [], hi: -1 };
+function showMenu(filter) {
+  const q = (filter ?? "").trim().toLowerCase();
+  const typed = filter?.trim();
+  const routes = state.config.routes.filter((r) => r.toLowerCase().includes(q));
+  menu.items = routes;
+  menu.hi = -1; // Enter goes to what you typed unless you arrowed onto a route
+  const rows = routes.map((r, i) => el("li", { role: "option", className: i === menu.hi ? "hi" : "", onmousedown: (e) => (e.preventDefault(), pickRoute(r)) }, r));
+  if (typed && !state.config.routes.includes(typed))
+    rows.push(el("li", { className: "go", onmousedown: (e) => (e.preventDefault(), pickRoute(typed)) }, `Go to ${typed.startsWith("/") ? typed : `/${typed}`}`));
+  $("routeMenu").replaceChildren(...rows);
+  setMenuOpen(rows.length > 0);
+}
+function setMenuOpen(open) {
+  $("routeMenu").hidden = !open;
+  $("path").setAttribute("aria-expanded", String(open));
+}
+function pickRoute(r) {
+  setMenuOpen(false);
+  navigate(r);
+}
+function moveHi(dir) {
+  if (!menu.items.length) return;
+  menu.hi = (menu.hi + dir + menu.items.length) % menu.items.length;
+  [...$("routeMenu").children].forEach((li, i) => li.classList.toggle("hi", i === menu.hi));
 }
 
 /* ── Frames ──────────────────────────────────────────────────── */
@@ -397,6 +438,13 @@ function navigate(path) {
   renderToolbar();
 }
 
+function toggleVisible(name) {
+  const set = new Set(state.visible);
+  if (!set.delete(name)) set.add(name);
+  if (!set.size) return; // at least one viewport stays on
+  setVisible(set);
+}
+
 function setVisible(set) {
   state.visible = set;
   writeHash();
@@ -504,8 +552,36 @@ async function boot() {
   initChanges(() => state.active);
   $("pathForm").onsubmit = (e) => {
     e.preventDefault();
-    navigate($("path").value.trim() || "/");
+    const hi = menu.items[menu.hi];
+    setMenuOpen(false);
+    navigate(hi ?? ($("path").value.trim() || "/"));
+    $("path").blur();
   };
+  $("path").oninput = (e) => showMenu(e.target.value);
+  $("path").onfocus = (e) => e.target.select();
+  $("path").onblur = () => {
+    setMenuOpen(false);
+    $("path").value = pairs.get(state.active)?.path ?? $("path").value;
+  };
+  $("path").onkeydown = (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if ($("routeMenu").hidden) showMenu("");
+      else moveHi(e.key === "ArrowDown" ? 1 : -1);
+    } else if (e.key === "Escape") {
+      setMenuOpen(false);
+      $("path").blur();
+    }
+  };
+  $("quickBtn").onmousedown = (e) => e.preventDefault();
+  $("quickBtn").onclick = () => {
+    if (!$("routeMenu").hidden) return setMenuOpen(false);
+    $("path").focus();
+    showMenu("");
+  };
+  new ResizeObserver(() => {
+    document.documentElement.style.setProperty("--toolbar-h", `${$("toolbar").offsetHeight}px`);
+  }).observe($("toolbar"));
   $("reload").onclick = () => {
     const p = pairs.get(state.active);
     if (p) for (const f of p.frames.values()) f.iframe.src = f.iframe.src;
