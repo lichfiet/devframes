@@ -32,6 +32,9 @@ tabs that forget where you were. devframes turns that into one sidebar and one v
   keeps each session's route, scroll position and open dialogs. `[` and `]` cycle.
 - **Real device sizes.** Toggle phone, desktop and tablet (rotatable) in any
   combination, at least one always on.
+- **iPad presets and settings.** The tablet frame cycles through iPad mini, iPad, Air and Pro
+  sizes (`p` / Shift+P, or the ⇄ button on the frame label); the gear (or `,`) opens a quick
+  settings modal. Sizes come from the `presets` config key; choices persist in localStorage.
 - **Search and quick nav.** A toolbar box filters your `routes` or takes any path
   (Enter navigates); routes show as buttons, or a dropdown when there are many.
 - **Combine branches.** Tick unmerged branches and preview them merged together on

@@ -53,6 +53,21 @@ export const DEFAULTS = Object.freeze({
     { name: "phone", width: 390, height: 844 },
     { name: "desktop", width: 1440, height: 900 },
   ],
+  /**
+   * Size presets per viewport name, cycled from the frame label (or the `p` key)
+   * and picked in the settings modal (gear). CSS points, portrait; `rotate` swaps
+   * them. A viewport can also carry its own `presets: [...]`, which wins. Only
+   * viewports that have presets get the picker. Identical sizes are listed once.
+   */
+  presets: {
+    tablet: [
+      { id: "ipad-mini", label: "iPad mini", width: 744, height: 1133 },
+      { id: "ipad-10", label: 'iPad 10th gen / iPad Air 11"', width: 820, height: 1180 },
+      { id: "ipad-pro-11", label: 'iPad Pro 11"', width: 834, height: 1210 },
+      { id: "ipad-air-13", label: 'iPad Air 13"', width: 1024, height: 1366 },
+      { id: "ipad-pro-13", label: 'iPad Pro 13"', width: 1032, height: 1376 },
+    ],
+  },
   /** Quick-route buttons in the toolbar. */
   routes: ["/"],
   /** Route a session opens on. */

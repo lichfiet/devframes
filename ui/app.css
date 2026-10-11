@@ -119,6 +119,7 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 
 .stage { position: relative; flex: 1; min-height: 0; overflow: hidden; padding: 16px; }
 .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
+.empty[hidden] { display: none; }
 .pair { display: flex; gap: 24px; align-items: flex-start; }
 .pair[hidden] { display: none; }
 .frame { display: flex; flex-direction: column; gap: 6px; }
@@ -156,3 +157,15 @@ kbd { border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; font-si
 .frame-label { display: flex; align-items: center; gap: 6px; }
 .rotate-btn { border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 6px; padding: 0 6px; line-height: 18px; cursor: pointer; font-size: 13px; }
 .rotate-btn:hover { background: var(--hover); }
+
+/* Settings modal */
+.modal-back { position: fixed; inset: 0; z-index: 20; display: grid; place-items: start center; padding-top: 12vh; background: rgb(0 0 0 / 0.3); }
+.modal-back[hidden] { display: none; }
+.modal { width: min(420px, 92vw); max-height: 76vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / 0.25); }
+.modal-body { overflow: auto; padding: 4px 14px 14px; }
+.modal-body h3 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.modal-body label { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; }
+.modal-body label .muted { margin-left: auto; font-family: ui-monospace, monospace; font-size: 11px; }
+.modal-body .seg { margin-top: 2px; }
+.modal-body .hint { margin-top: 14px; font-size: 11px; color: var(--muted); }
+.icon-btn:focus-visible, .btn:focus-visible, .rotate-btn:focus-visible, .seg button:focus-visible, .modal input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

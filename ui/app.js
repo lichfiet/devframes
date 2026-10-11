@@ -25,27 +25,117 @@ const state = {
 };
 const pairs = new Map();
 
-/* ── Rotation (per viewport, remembered) ─────────────────────── */
-const rotated = new Set((() => {
-  try { return JSON.parse(localStorage.getItem("devframes.rotated") || "[]"); } catch { return []; }
-})());
-/** Effective size: a rotated viewport swaps width and height. */
+/* ── Rotation + size presets (per viewport, remembered) ──────── */
+const load = (key, fallback) => {
+  try { return JSON.parse(localStorage.getItem(key) || "") ?? fallback; } catch { return fallback; }
+};
+const save = (key, v) => { try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
+const rotated = new Set(load("devframes.rotated", []));
+const chosen = load("devframes.preset", {}); // viewport name -> preset id
+/** The preset in force for a viewport: the saved pick, else the one matching its configured size, else none. */
+function presetOf(vp) {
+  const list = vp.presets ?? [];
+  return list.find((p) => p.id === chosen[vp.name]) ?? list.find((p) => p.width === vp.width && p.height === vp.height) ?? null;
+}
+/** Effective size: preset (or configured) size, swapped when rotated. */
 function dims(vp) {
-  return rotated.has(vp.name) ? { w: vp.height, h: vp.width } : { w: vp.width, h: vp.height };
+  const base = presetOf(vp) ?? vp;
+  return rotated.has(vp.name) ? { w: base.height, h: base.width } : { w: base.width, h: base.height };
+}
+const frameLabel = (vp) => {
+  const d = dims(vp), pr = presetOf(vp);
+  return `${vp.name}${pr ? ` · ${pr.label}` : ""} · ${d.w}×${d.h}`;
+};
+function applySizes() {
+  for (const p of pairs.values()) {
+    for (const f of p.frames.values()) {
+      const d = dims(f.vp);
+      f.iframe.width = d.w;
+      f.iframe.height = d.h;
+      f.label.textContent = frameLabel(f.vp);
+    }
+  }
+  layout();
+  if (!$("settings").hidden) renderSettings();
 }
 function toggleRotate(name) {
   rotated.has(name) ? rotated.delete(name) : rotated.add(name);
-  try { localStorage.setItem("devframes.rotated", JSON.stringify([...rotated])); } catch {}
-  for (const p of pairs.values()) {
-    const f = p.frames.get(name);
-    if (!f) continue;
-    const d = dims(f.vp);
-    f.iframe.width = d.w;
-    f.iframe.height = d.h;
-    f.label.textContent = `${name} · ${d.w}×${d.h}`;
+  save("devframes.rotated", [...rotated]);
+  applySizes();
+}
+function setPreset(name, id) {
+  chosen[name] = id;
+  save("devframes.preset", chosen);
+  applySizes();
+}
+function cyclePreset(vp, dir) {
+  const list = vp.presets;
+  const i = list.indexOf(presetOf(vp));
+  setPreset(vp.name, list[(i + dir + list.length) % list.length].id);
+}
+/** First visible viewport that has presets (what the `p` key cycles). */
+const presetVp = () => state.config.viewports.find((v) => v.presets?.length && state.visible.has(v.name));
+
+/* ── Settings modal ──────────────────────────────────────────── */
+let settingsReturn = null;
+function renderSettings() {
+  const body = $("settingsBody");
+  const vps = state.config.viewports;
+  const keep = body.contains(document.activeElement) ? document.activeElement.dataset.k : null;
+  const kids = [el("h3", {}, "Viewports")];
+  kids.push(
+    el("div", {}, ...vps.map((v) =>
+      el("label", {},
+        el("input", { type: "checkbox", checked: state.visible.has(v.name), onchange: () => toggleVisible(v.name) }),
+        v.name, el("span", { className: "muted" }, `${v.width}×${v.height}`)),
+    )),
+  );
+  for (const v of vps) {
+    if (v.presets?.length) {
+      kids.push(el("h3", {}, `${v.name} size`));
+      const cur = presetOf(v);
+      for (const p of v.presets) {
+        const input = el("input", { type: "radio", name: `preset-${v.name}`, checked: p === cur, onchange: () => setPreset(v.name, p.id) });
+        input.dataset.k = `${v.name}:${p.id}`;
+        kids.push(el("label", {}, input, p.label, el("span", { className: "muted" }, `${p.width}×${p.height}`)));
+      }
+    }
+    if (v.rotatable) {
+      kids.push(el("h3", {}, `${v.name} orientation`));
+      const seg = el("div", { className: "seg", role: "group", ariaLabel: `${v.name} orientation` },
+        ...[["Portrait", false], ["Landscape", true]].map(([t, r]) => {
+          const b = el("button", { type: "button", className: rotated.has(v.name) === r ? "on" : "", ariaPressed: String(rotated.has(v.name) === r),
+            onclick: () => rotated.has(v.name) !== r && toggleRotate(v.name) }, t);
+          b.dataset.k = `${v.name}:${t}`;
+          return b;
+        }));
+      kids.push(seg);
+    }
   }
-  layout();
-} // id -> { el, url, frames: Map(vpName -> {box, iframe}) }
+  kids.push(el("p", { className: "hint" }, el("kbd", {}, "p"), " cycle size  ·  ", el("kbd", {}, "Shift+P"), " back  ·  ", el("kbd", {}, ","), " settings  ·  ", el("kbd", {}, "Esc"), " close"));
+  body.replaceChildren(...kids);
+  if (keep) body.querySelector(`[data-k="${CSS.escape(keep)}"]`)?.focus();
+}
+function openSettings() {
+  settingsReturn = document.activeElement;
+  renderSettings();
+  $("settings").hidden = false;
+  ($("settingsBody").querySelector("input, button") ?? $("settingsClose")).focus();
+}
+function closeSettings() {
+  $("settings").hidden = true;
+  settingsReturn?.focus?.();
+}
+/** Esc closes; Tab wraps inside the dialog. */
+function settingsKeys(e) {
+  if (e.key === "Escape") return e.preventDefault(), closeSettings();
+  if (e.key !== "Tab") return;
+  const f = [...$("settings").querySelectorAll("input, button")];
+  const first = f[0], last = f.at(-1);
+  if (!$("settings").contains(document.activeElement)) (e.preventDefault(), first.focus());
+  else if (e.shiftKey && document.activeElement === first) (e.preventDefault(), last.focus());
+  else if (!e.shiftKey && document.activeElement === last) (e.preventDefault(), first.focus());
+}
 
 /* ── Hash (active session + view mode) ───────────────────────── */
 
@@ -298,11 +388,14 @@ function ensurePair(s) {
       iframe.width = d.w;
       iframe.height = d.h;
       const box = el("div", { className: `frame-box ${vp.name}` }, iframe);
-      const label = el("span", {}, `${vp.name} · ${d.w}×${d.h}`);
+      const label = el("span", {}, frameLabel(vp));
+      const cyc = vp.presets?.length > 1
+        ? el("button", { className: "rotate-btn", title: "Next device size (p)", ariaLabel: `Next ${vp.name} size`, onclick: () => cyclePreset(vp, 1) }, "⇄")
+        : null;
       const rotate = vp.rotatable
         ? el("button", { className: "rotate-btn", title: "Rotate", "aria-label": `Rotate ${vp.name}`, onclick: () => toggleRotate(vp.name) }, "↻")
         : null;
-      const wrap = el("div", { className: "frame" }, el("div", { className: "frame-label" }, label, rotate), box);
+      const wrap = el("div", { className: "frame" }, el("div", { className: "frame-label" }, label, cyc, rotate), box);
       wrap.dataset.vp = vp.name;
       // keep config order
       const after = [...p.el.children].find(
@@ -600,10 +693,19 @@ async function boot() {
   try {
     if (localStorage.getItem("devframes.collapsed") === "1") $("app").classList.add("collapsed");
   } catch {}
+  $("settingsBtn").onclick = openSettings;
+  $("settingsClose").onclick = closeSettings;
+  $("settings").onmousedown = (e) => e.target === $("settings") && closeSettings();
   addEventListener("keydown", (e) => {
-    if (e.target instanceof HTMLInputElement) return;
+    if (!$("settings").hidden) return settingsKeys(e);
+    if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === "[") cycle(-1);
     if (e.key === "]") cycle(1);
+    if (e.key === ",") openSettings();
+    if (e.key === "p" || e.key === "P") {
+      const vp = presetVp();
+      if (vp) cyclePreset(vp, e.shiftKey ? -1 : 1);
+    }
   });
   addEventListener("resize", layout);
   new ResizeObserver(layout).observe($("stage"));

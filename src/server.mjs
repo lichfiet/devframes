@@ -167,7 +167,7 @@ export async function createDevframes({ root, config, uiPort, log = console.log 
   const routes = {
     "GET /api/config": () => ({
       root: cfg.root,
-      viewports: cfg.viewports,
+      viewports: cfg.viewports.map((v) => ({ ...v, presets: v.presets ?? cfg.presets?.[v.name] ?? [] })),
       routes: cfg.routes,
       startPath: cfg.startPath,
       links: cfg.links,
